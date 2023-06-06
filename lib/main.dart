@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:weather_flutter/api_keys.dart';
 
 void main() {
   runApp(const MyApp());
@@ -166,7 +167,7 @@ class _MyAppState extends State<MyApp> {
   }
 
   final baseUrl =
-      'https://api.openweathermap.org/data/2.5/weather?appid=8543f6270e23784de12f4f571533d422';
+      'https://api.openweathermap.org/data/2.5/weather?appid=$openWeatherMapApiKey';
 
   void getFromInput() async {
     var url = '$baseUrl&q=${locationFieldController.value.text}';
