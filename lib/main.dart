@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 
 void main() {
@@ -19,6 +20,7 @@ class MyApp extends StatefulWidget {
 class _MyAppState extends State<MyApp> {
   String? result;
   late TextEditingController locationFieldController;
+  final GlobalKey<ScaffoldMessengerState> snackBarKey = GlobalKey();
 
   @override
   void initState() {
@@ -35,6 +37,7 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      scaffoldMessengerKey: snackBarKey,
       home: Scaffold(
         appBar: AppBar(
           title: const Text('Weather'),
@@ -68,19 +71,36 @@ class _MyAppState extends State<MyApp> {
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton(
-                  onPressed: get,
-                  child: const Text(
-                    'Get',
-                    style: TextStyle(fontSize: 24, height: 1.5),
+                  onPressed: getFromInput,
+                  child: Container(
+                    margin: const EdgeInsets.all(10),
+                    child: const Text(
+                      'Get',
+                      style: TextStyle(fontSize: 24, height: 1.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  onPressed: getFromLocation,
+                  child: Container(
+                    margin: const EdgeInsets.all(10),
+                    child: const Text(
+                      'Get From Current Location',
+                      style: TextStyle(fontSize: 24, height: 1.5),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 12),
                 if (result != null) ...[
                   ElevatedButton(
                     onPressed: reset,
-                    child: const Text(
-                      'Reset',
-                      style: TextStyle(fontSize: 24, height: 1.5),
+                    child: Container(
+                      margin: const EdgeInsets.all(10),
+                      child: const Text(
+                        'Reset',
+                        style: TextStyle(fontSize: 24, height: 1.5),
+                      ),
                     ),
                   ),
                   Text(
@@ -103,9 +123,57 @@ class _MyAppState extends State<MyApp> {
     });
   }
 
-  void get() async {
-    var url =
-        'https://api.openweathermap.org/data/2.5/weather?appid=8543f6270e23784de12f4f571533d422&q=${locationFieldController.value.text}';
+  Future<bool> handleLocationPermission() async {
+    bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      const snackBar = SnackBar(
+        content: Text('Location services are disabled. Please enable them.'),
+      );
+      snackBarKey.currentState?.showSnackBar(snackBar);
+      return false;
+    }
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        const snackBar = SnackBar(
+          content: Text('Location permissions are needed to continue.'),
+        );
+        snackBarKey.currentState?.showSnackBar(snackBar);
+        return false;
+      }
+    }
+    if (permission == LocationPermission.deniedForever) {
+      const snackBar = SnackBar(
+        content: Text(
+            "Location permissions are needed to continue. Enable permissions from settings"),
+      );
+      snackBarKey.currentState?.showSnackBar(snackBar);
+    }
+    return true;
+  }
+
+  void getFromLocation() async {
+    if (!await handleLocationPermission()) {
+      return;
+    }
+    Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high);
+    var longitude = position.longitude;
+    var latitude = position.latitude;
+    var url = '$baseUrl&lon=$longitude&lat=$latitude';
+    get(url);
+  }
+
+  final baseUrl =
+      'https://api.openweathermap.org/data/2.5/weather?appid=8543f6270e23784de12f4f571533d422';
+
+  void getFromInput() async {
+    var url = '$baseUrl&q=${locationFieldController.value.text}';
+    await get(url);
+  }
+
+  Future get(String url) async {
     final response = await http.get(Uri.parse(url));
     setState(() {
       if (response.statusCode == 200) {
